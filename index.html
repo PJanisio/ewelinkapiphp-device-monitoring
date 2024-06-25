@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Device Monitoring ewelinkApiPhp</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        #loader {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #parameters h2 {
+            cursor: pointer;
+        }
+        #parameters-content {
+            display: none;
+        }
+        .changed {
+            color: green;
+        }
+        .log-container {
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+        }
+        .ws-icon {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .ws-online {
+            background-color: green;
+            animation: pulse 1s infinite;
+        }
+        .ws-offline {
+            background-color: red;
+        }
+        @keyframes pulse {
+            0% { transform: scale(0.75); }
+            50% { transform: scale(1.25); }
+            100% { transform: scale(0.75); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Device Monitoring ewelinkApiPhp</h1>
+        <div id="loader" class="mt-2">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <div id="loader-text">Connecting and fetching data...</div>
+        </div>
+        <div class="mb-3">
+            <label for="deviceId" class="form-label">Device ID or Name:</label>
+            <select id="deviceId" name="deviceId" class="form-control"></select>
+            <button id="fetchParams" class="btn btn-primary mt-2">Fetch Parameters</button>
+        </div>
+        <div id="parameters" class="mb-3">
+            <h2 class="text-decoration-underline">Select Parameters to Monitor</h2>
+            <div id="parameters-content">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="selectAll">
+                    <label class="form-check-label" for="selectAll">Select All</label>
+                </div>
+                <form id="paramForm" class="mt-2"></form>
+            </div>
+            <button id="startMonitoring" class="btn btn-success mt-2" style="display: none;">Start Monitoring</button>
+        </div>
+        <div id="monitoringControls" class="mb-3">
+            <div class="form-group">
+                <label for="requestInterval" class="form-label">Request Interval (seconds):</label>
+                <input type="number" id="requestInterval" name="requestInterval" class="form-control" value="5">
+            </div>
+            <button id="stopMonitoring" class="btn btn-danger mt-2" style="display: none;">Stop Monitoring</button>
+        </div>
+        <div id="deviceData" class="mb-3">
+            <h2>Live Data</h2>
+            <pre id="liveData" class="border p-3"></pre>
+        </div>
+        <div id="heartbeat" class="mb-3">
+            <h2>Heartbeat <span id="ws-icon" class="ws-icon ws-offline"></span></h2>
+            <pre id="heartbeatLog" class="border p-3"></pre>
+        </div>
+        <div id="changesLog" class="mb-3">
+            <h2>Changes Log</h2>
+            <div id="changesContainer" class="log-container"></div>
+        </div>
+    </div>
+    <footer class="text-center mt-5">
+        <p>&copy;<a href="https://github.com/PJanisio/ewelinkApiPhp">ewelinkApiPhp</a></p>
+    </footer>
+    <script>
+        $(document).ready(function () {
+            let previousData = {};
+            let monitoringInterval;
+            let heartbeatInterval;
+            let websocketConnected = false;
+
+            $('#loader').show();
+            $('#loader-text').text('Loading Device List...');
+
+            checkAuthorization();
+
+            $('#parameters h2').click(function () {
+                $('#parameters-content').toggle();
+            });
+
+            $('#fetchParams').click(function () {
+                let deviceId = $('#deviceId').val();
+                if (!deviceId) {
+                    alert('Please select a device');
+                    return;
+                }
+                fetchDeviceParameters(deviceId);
+            });
+
+            $('#startMonitoring').click(function () {
+                let deviceId = $('#deviceId').val();
+                let params = [];
+                $('#paramForm input:checked').each(function() {
+                    params.push($(this).val());
+                });
+                if (params.length === 0) {
+                    alert('Please select at least one parameter to monitor');
+                    return;
+                }
+                let interval = $('#requestInterval').val() * 1000;
+                if (interval < 1000) {
+                    alert('Interval must be at least 1 second.');
+                    return;
+                }
+                $('#loader').show();
+                $('#loader-text').text('Connecting and fetching data...');
+                $('#parameters').hide();
+                $('#fetchParams').hide();
+                startMonitoring(deviceId, params, interval);
+                $('#stopMonitoring').show();
+            });
+
+            $('#stopMonitoring').click(function () {
+                clearInterval(monitoringInterval);
+                clearInterval(heartbeatInterval);
+                $('#loader').hide();
+                $('#parameters').show();
+                $('#fetchParams').show();
+                $('#stopMonitoring').hide();
+                $('#heartbeatLog').text('Monitoring stopped.');
+                updateWebSocketStatus(false);
+            });
+
+            $('#selectAll').click(function () {
+                $('#paramForm input').prop('checked', this.checked);
+            });
+
+            $('#paramForm').on('change', 'input', function () {
+                if (!this.checked) {
+                    $('#selectAll').prop('checked', false);
+                }
+            });
+
+            function checkAuthorization() {
+                $.ajax({
+                    url: 'auth.php',
+                    method: 'GET',
+                    success: function (response) {
+                        let data = typeof response === 'string' ? JSON.parse(response) : response;
+                        if (data.redirect) {
+                            window.location.href = data.redirect;
+                        } else if (data.success) {
+                            fetchDevices();
+                        } else {
+                            console.error(data.error ? data.error : 'Unknown error');
+                            $('#loader-text').text('Authorization failed.');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(error);
+                        $('#loader-text').text('Authorization failed.');
+                    }
+                });
+            }
+
+            function fetchDevices() {
+                $.ajax({
+                    url: 'websocket.php',
+                    method: 'GET',
+                    data: {
+                        action: 'getDevicesList'
+                    },
+                    success: function (response) {
+                        let data = typeof response === 'string' ? JSON.parse(response) : response;
+                        if (data.success) {
+                            let deviceSelect = $('#deviceId');
+                            deviceSelect.empty();
+                            data.data.forEach(device => {
+                                deviceSelect.append('<option value="' + device.deviceid + '">' + device.name + ' (' + device.deviceid + ' - ' + device.productModel + ')</option>');
+                            });
+                            $('#loader').hide();
+                        } else {
+                            console.error(data.error ? data.error : 'Unknown error');
+                            $('#loader-text').text('Failed to load device list.');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(error);
+                        $('#loader-text').text('Failed to load device list.');
+                    }
+                });
+            }
+
+            function fetchDeviceParameters(deviceId) {
+                $.ajax({
+                    url: 'websocket.php',
+                    method: 'GET',
+                    data: {
+                        action: 'getAllParams',
+                        device: deviceId
+                    },
+                    success: function (response) {
+                        let data = typeof response === 'string' ? JSON.parse(response) : response;
+                        if (data.success) {
+                            let paramForm = $('#paramForm');
+                            paramForm.empty();
+                            for (let param in data.data) {
+                                paramForm.append('<div class="form-check"><input class="form-check-input" type="checkbox" name="params" value="' + param + '"><label class="form-check-label">' + param + '</label></div>');
+                            }
+                            $('#startMonitoring').show();
+                            $('#parameters-content').show();
+                            $('#loader').hide();
+                        } else {
+                            console.error(data.error ? data.error : 'Unknown error');
+                            $('#loader').hide();
+                            $('#loader-text').text('Failed to fetch parameters.');
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        console.error(error);
+                        $('#loader').hide();
+                        $('#loader-text').text('Failed to fetch parameters.');
+                    }
+                });
+            }
+
+            function startMonitoring(deviceId, params, interval) {
+                monitoringInterval = setInterval(function () {
+                    $.ajax({
+                        url: 'websocket.php',
+                        method: 'GET',
+                        data: {
+                            action: 'getLiveParams',
+                            device: deviceId,
+                            params: []  // Always fetch all parameters
+                        },
+                        success: function (response) {
+                            let data = typeof response === 'string' ? JSON.parse(response) : response;
+                            if (data.success) {
+                                let liveData = $('#liveData');
+                                let changesContainer = $('#changesContainer');
+                                
+                                // Filter only selected parameters
+                                let filteredData = {};
+                                params.forEach(param => {
+                                    if (data.data[param] !== undefined) {
+                                        filteredData[param] = data.data[param];
+                                    }
+                                });
+                                liveData.text(JSON.stringify(filteredData, null, 2));
+
+                                // Log changes
+                                params.forEach(param => {
+                                    if (previousData[param] && previousData[param] !== data.data[param]) {
+                                        let logEntry = '<div class="changed">Time: ' + new Date().toLocaleTimeString() + ' - Parameter: ' + param + ' - Old Value: ' + previousData[param] + ' - New Value: ' + data.data[param] + '</div>';
+                                        changesContainer.append(logEntry);
+                                    }
+                                    previousData[param] = data.data[param];
+                                });
+                                $('#loader').hide();
+                                updateWebSocketStatus(true);
+                            } else {
+                                console.error(data.error ? data.error : 'Unknown error');
+                                updateWebSocketStatus(false);
+                            }
+                        },
+                        error: function (xhr, status, error) {
+                            console.error(error);
+                            updateWebSocketStatus(false);
+                        }
+                    });
+                }, interval); // Polling at user-defined interval for live data
+
+                heartbeatInterval = setInterval(function () {
+                    $('#heartbeatLog').text('Heartbeat sent at ' + new Date().toLocaleTimeString());
+                }, 10000); // Logging heartbeat every 10 seconds
+            }
+
+            function updateWebSocketStatus(isConnected) {
+                let wsIcon = $('#ws-icon');
+                if (isConnected) {
+                    wsIcon.removeClass('ws-offline').addClass('ws-online');
+                } else {
+                    wsIcon.removeClass('ws-online').addClass('ws-offline');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
