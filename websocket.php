@@ -6,7 +6,6 @@ require_once __DIR__ . '/autoloader.php';
 
 $action = $_GET['action'] ?? null;
 $deviceIdentifier = $_GET['device'] ?? null;
-$params = $_GET['params'] ?? [];
 
 $httpClient = new HttpClient();
 $devices = new Devices($httpClient);
@@ -20,7 +19,8 @@ try {
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'getLiveParams':
-            $response = $devices->forceGetData($deviceIdentifier, []);
+            // Always send empty params to getDataWebSocket
+            $response = $devices->getDataWebSocket($deviceIdentifier, []);
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'getDevicesList':
