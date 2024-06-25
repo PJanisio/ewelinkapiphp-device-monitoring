@@ -14,6 +14,10 @@
         #parameters h2 {
             cursor: pointer;
         }
+        #parameters h2 span {
+            font-size: 0.8em;
+            margin-left: 5px;
+        }
         #parameters-content {
             display: none;
         }
@@ -21,10 +25,10 @@
             color: green;
         }
         .log-container {
-            height: 150px;
-            overflow-y: auto;
             border: 1px solid #ccc;
             padding: 10px;
+            max-height: 50vh;
+            overflow-y: auto;
         }
         .ws-icon {
             width: 15px;
@@ -40,6 +44,18 @@
         .ws-offline {
             background-color: red;
         }
+        .dark-mode {
+            background-color: #121212;
+            color: #ffffff;
+        }
+        .dark-mode .border {
+            border-color: #444444;
+        }
+        .dark-mode .form-control, 
+        .dark-mode .form-check-input {
+            background-color: #333333;
+            color: #ffffff;
+        }
         @keyframes pulse {
             0% { transform: scale(0.75); }
             50% { transform: scale(1.25); }
@@ -49,7 +65,13 @@
 </head>
 <body>
     <div class="container mt-5">
-        <h1 class="text-center">Device Monitoring ewelinkApiPhp</h1>
+        <div class="d-flex justify-content-between align-items-center">
+            <h1 class="text-center">Device Monitoring ewelinkApiPhp</h1>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="darkModeToggle">
+                <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+            </div>
+        </div>
         <div id="loader" class="mt-2">
             <div class="spinner-border text-primary" role="status">
                 <span class="visually-hidden">Loading...</span>
@@ -59,10 +81,10 @@
         <div class="mb-3">
             <label for="deviceId" class="form-label">Device ID or Name:</label>
             <select id="deviceId" name="deviceId" class="form-control"></select>
-            <button id="fetchParams" class="btn btn-primary mt-2">Fetch Parameters</button>
+            <button id="fetchParams" class="btn btn-primary mt-2">Load Device Parameters</button>
         </div>
         <div id="parameters" class="mb-3">
-            <h2 class="text-decoration-underline">Select Parameters to Monitor</h2>
+            <h2 class="text-decoration-underline">Select Parameters to Monitor <span>&#9660;</span></h2>
             <div id="parameters-content">
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="selectAll">
@@ -75,7 +97,7 @@
         <div id="monitoringControls" class="mb-3">
             <div class="form-group">
                 <label for="requestInterval" class="form-label">Request Interval (seconds):</label>
-                <input type="number" id="requestInterval" name="requestInterval" class="form-control" value="5">
+                <input type="number" id="requestInterval" name="requestInterval" class="form-control" value="15">
             </div>
             <button id="stopMonitoring" class="btn btn-danger mt-2" style="display: none;">Stop Monitoring</button>
         </div>
@@ -87,13 +109,17 @@
             <h2>Heartbeat <span id="ws-icon" class="ws-icon ws-offline"></span></h2>
             <pre id="heartbeatLog" class="border p-3"></pre>
         </div>
+        <div id="websocketsAnswerTime" class="mb-3">
+            <h2>Websockets Answer Time</h2>
+            <pre id="answerTimeLog" class="border p-3"></pre>
+        </div>
         <div id="changesLog" class="mb-3">
             <h2>Changes Log</h2>
             <div id="changesContainer" class="log-container"></div>
         </div>
     </div>
     <footer class="text-center mt-5">
-        <p>&copy;<a href="https://github.com/PJanisio/ewelinkApiPhp">ewelinkApiPhp</a></p>
+        <p>&copy; <a href="https://github.com/PJanisio/ewelinkApiPhp">ewelinkApiPhp</a></p>
     </footer>
     <script>
         $(document).ready(function () {
@@ -101,6 +127,8 @@
             let monitoringInterval;
             let heartbeatInterval;
             let websocketConnected = false;
+            let requestCount = 0;
+            let totalTime = 0;
 
             $('#loader').show();
             $('#loader-text').text('Loading Device List...');
@@ -109,6 +137,7 @@
 
             $('#parameters h2').click(function () {
                 $('#parameters-content').toggle();
+                $(this).find('span').text($(this).find('span').text() === '▼' ? '▲' : '▼');
             });
 
             $('#fetchParams').click(function () {
@@ -162,6 +191,10 @@
                 if (!this.checked) {
                     $('#selectAll').prop('checked', false);
                 }
+            });
+
+            $('#darkModeToggle').click(function () {
+                $('body').toggleClass('dark-mode');
             });
 
             function checkAuthorization() {
@@ -249,6 +282,7 @@
 
             function startMonitoring(deviceId, params, interval) {
                 monitoringInterval = setInterval(function () {
+                    const startTime = performance.now();
                     $.ajax({
                         url: 'websocket.php',
                         method: 'GET',
@@ -258,6 +292,12 @@
                             params: []  // Always fetch all parameters
                         },
                         success: function (response) {
+                            const endTime = performance.now();
+                            const elapsedTime = ((endTime - startTime) / 1000).toFixed(2);
+                            requestCount++;
+                            totalTime += parseFloat(elapsedTime);
+                            let averageTime = (totalTime / requestCount).toFixed(2);
+
                             let data = typeof response === 'string' ? JSON.parse(response) : response;
                             if (data.success) {
                                 let liveData = $('#liveData');
@@ -276,12 +316,14 @@
                                 params.forEach(param => {
                                     if (previousData[param] && previousData[param] !== data.data[param]) {
                                         let logEntry = '<div class="changed">Time: ' + new Date().toLocaleTimeString() + ' - Parameter: ' + param + ' - Old Value: ' + previousData[param] + ' - New Value: ' + data.data[param] + '</div>';
-                                        changesContainer.append(logEntry);
+                                        changesContainer.prepend(logEntry); // Add new changes to the top
                                     }
                                     previousData[param] = data.data[param];
                                 });
                                 $('#loader').hide();
                                 updateWebSocketStatus(true);
+                                $('#heartbeatTime').text(elapsedTime);
+                                $('#answerTimeLog').text(`Last answer: ${elapsedTime} seconds\nAverage answer: ${averageTime} seconds\nRequests made: ${requestCount}`);
                             } else {
                                 console.error(data.error ? data.error : 'Unknown error');
                                 updateWebSocketStatus(false);
