@@ -68,6 +68,7 @@
         }
         .dark-icon::before {
             content: '🌙';
+            color: darkgrey;
         }
         .light-icon::before {
             content: '☀️';
@@ -122,8 +123,8 @@
             <h2>Heartbeat <span id="ws-icon" class="ws-icon ws-offline"></span></h2>
             <pre id="heartbeatLog" class="border p-3"></pre>
         </div>
-        <div id="websocketsAnswerTime" class="mb-3">
-            <h2>Websockets Answer Time</h2>
+        <div id="websocketsStats" class="mb-3">
+            <h2>Websockets Stats</h2>
             <pre id="answerTimeLog" class="border p-3"></pre>
         </div>
         <div id="changesLog" class="mb-3">
@@ -142,6 +143,8 @@
             let websocketConnected = false;
             let requestCount = 0;
             let totalTime = 0;
+            let failedRequestCount = 0;
+            let pendingRequests = 0;
             let params = [];  // Declare params here to make it available in the scope
 
             function updateLoader(progress, text) {
@@ -309,7 +312,11 @@
 
             function startMonitoring(deviceId, interval) {
                 updateLoader(50, 'Starting monitoring...');
+                updateLoader(60, 'Connecting to WebSocket...');
+                updateLoader(70, 'Sending heartbeat...');
+                updateLoader(80, 'Sending request...');
                 monitoringInterval = setInterval(function () {
+                    pendingRequests++;
                     const startTime = performance.now();
                     $.ajax({
                         url: 'websocket.php',
@@ -320,6 +327,7 @@
                             params: []  // Always send empty params
                         },
                         success: function (response) {
+                            pendingRequests--;
                             const endTime = performance.now();
                             const elapsedTime = ((endTime - startTime) / 1000).toFixed(2);
                             requestCount++;
@@ -327,7 +335,7 @@
                             let averageTime = (totalTime / requestCount).toFixed(2);
 
                             let data = typeof response === 'string' ? JSON.parse(response) : response;
-                            if (data.success) {
+                            if (data.success && data.data !== null) {
                                 let liveData = $('#liveData');
                                 let changesContainer = $('#changesContainer');
                                 
@@ -354,14 +362,19 @@
                                 }, 500);
                                 updateWebSocketStatus(true);
                                 $('#heartbeatTime').text(elapsedTime);
-                                $('#answerTimeLog').text(`Last answer: ${elapsedTime} seconds\nAverage answer: ${averageTime} seconds\nRequests made: ${requestCount}`);
+                                $('#answerTimeLog').text(`Last answer: ${elapsedTime} seconds\nAverage answer: ${averageTime} seconds\nRequests made: ${requestCount}\nRequests failed: ${failedRequestCount}\nPending requests: ${pendingRequests}`);
                             } else {
                                 console.error(data.error ? data.error : 'Unknown error');
+                                failedRequestCount++;
+                                $('#answerTimeLog').text(`Last answer: ${elapsedTime} seconds\nAverage answer: ${averageTime} seconds\nRequests made: ${requestCount}\nRequests failed: ${failedRequestCount}\nPending requests: ${pendingRequests}`);
                                 updateWebSocketStatus(false);
                             }
                         },
                         error: function (xhr, status, error) {
                             console.error(error);
+                            failedRequestCount++;
+                            pendingRequests--;
+                            $('#answerTimeLog').text(`Requests made: ${requestCount}\nRequests failed: ${failedRequestCount}\nPending requests: ${pendingRequests}`);
                             updateWebSocketStatus(false);
                         }
                     });
