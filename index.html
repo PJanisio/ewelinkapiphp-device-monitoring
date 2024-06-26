@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Monitoring ewelinkApiPhp</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <title>Device Monitoring</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <style>
         #loader {
             text-align: center;
             margin-top: 20px;
+            display: none;
         }
         #parameters h2 {
             cursor: pointer;
@@ -64,22 +66,28 @@
             50% { transform: scale(1.25); }
             100% { transform: scale(0.75); }
         }
+        .dark-icon::before {
+            content: '🌙';
+        }
+        .light-icon::before {
+            content: '☀️';
+        }
     </style>
 </head>
 <body>
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center">
-            <h1 class="text-center">Device Monitoring ewelinkApiPhp</h1>
-            <div class="form-check form-switch">
+            <h1 class="text-center w-100">Device Monitoring</h1>
+            <div class="form-check form-switch ms-auto">
                 <input class="form-check-input" type="checkbox" id="darkModeToggle">
-                <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+                <label class="form-check-label" for="darkModeToggle"><span id="darkModeIcon" class="dark-icon"></span></label>
             </div>
         </div>
         <div id="loader" class="mt-2">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
+            <div class="progress" style="height: 30px;">
+                <div id="loader-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
             </div>
-            <div id="loader-text">Connecting and fetching data...</div>
+            <div id="loader-text" class="mt-2">Connecting and fetching data...</div>
         </div>
         <div class="mb-3">
             <label for="deviceId" class="form-label">Device ID or Name:</label>
@@ -136,8 +144,13 @@
             let totalTime = 0;
             let params = [];  // Declare params here to make it available in the scope
 
+            function updateLoader(progress, text) {
+                $('#loader-progress').css('width', progress + '%').text(progress + '%');
+                $('#loader-text').text(text);
+            }
+
             $('#loader').show();
-            $('#loader-text').text('Loading Device List...');
+            updateLoader(10, 'Loading Device List...');
 
             checkAuthorization();
 
@@ -152,6 +165,8 @@
                     alert('Please select a device');
                     return;
                 }
+                $('#loader').show();
+                updateLoader(20, 'Fetching device parameters...');
                 fetchDeviceParameters(deviceId);
             });
 
@@ -171,7 +186,7 @@
                     return;
                 }
                 $('#loader').show();
-                $('#loader-text').text('Connecting and fetching data...');
+                updateLoader(30, 'Connecting...');
                 $('#parameters').hide();
                 $('#fetchParams').hide();
                 startMonitoring(deviceId, interval);
@@ -201,6 +216,7 @@
 
             $('#darkModeToggle').click(function () {
                 $('body').toggleClass('dark-mode');
+                $('#darkModeIcon').toggleClass('dark-icon light-icon');
             });
 
             function checkAuthorization() {
@@ -212,15 +228,16 @@
                         if (data.redirect) {
                             window.location.href = data.redirect;
                         } else if (data.success) {
+                            updateLoader(40, 'Authorization successful. Fetching devices...');
                             fetchDevices();
                         } else {
                             console.error(data.error ? data.error : 'Unknown error');
-                            $('#loader-text').text('Authorization failed.');
+                            updateLoader(100, 'Authorization failed.');
                         }
                     },
                     error: function (xhr, status, error) {
                         console.error(error);
-                        $('#loader-text').text('Authorization failed.');
+                        updateLoader(100, 'Authorization failed.');
                     }
                 });
             }
@@ -240,15 +257,18 @@
                             data.data.forEach(device => {
                                 deviceSelect.append('<option value="' + device.deviceid + '">' + device.name + ' (' + device.deviceid + ' - ' + device.productModel + ')</option>');
                             });
-                            $('#loader').hide();
+                            updateLoader(60, 'Device list loaded.');
+                            setTimeout(function() {
+                                $('#loader').hide();
+                            }, 500);
                         } else {
                             console.error(data.error ? data.error : 'Unknown error');
-                            $('#loader-text').text('Failed to load device list.');
+                            updateLoader(100, 'Failed to load device list.');
                         }
                     },
                     error: function (xhr, status, error) {
                         console.error(error);
-                        $('#loader-text').text('Failed to load device list.');
+                        updateLoader(100, 'Failed to load device list.');
                     }
                 });
             }
@@ -271,22 +291,24 @@
                             }
                             $('#startMonitoring').show();
                             $('#parameters-content').show();
-                            $('#loader').hide();
+                            updateLoader(80, 'Parameters loaded.');
+                            setTimeout(function() {
+                                $('#loader').hide();
+                            }, 500);
                         } else {
                             console.error(data.error ? data.error : 'Unknown error');
-                            $('#loader').hide();
-                            $('#loader-text').text('Failed to fetch parameters.');
+                            updateLoader(100, 'Failed to fetch parameters.');
                         }
                     },
                     error: function (xhr, status, error) {
                         console.error(error);
-                        $('#loader').hide();
-                        $('#loader-text').text('Failed to fetch parameters.');
+                        updateLoader(100, 'Failed to fetch parameters.');
                     }
                 });
             }
 
             function startMonitoring(deviceId, interval) {
+                updateLoader(50, 'Starting monitoring...');
                 monitoringInterval = setInterval(function () {
                     const startTime = performance.now();
                     $.ajax({
@@ -326,7 +348,10 @@
                                     }
                                     previousData[param] = data.data[param];
                                 });
-                                $('#loader').hide();
+                                updateLoader(100, 'Monitoring started.');
+                                setTimeout(function() {
+                                    $('#loader').hide();
+                                }, 500);
                                 updateWebSocketStatus(true);
                                 $('#heartbeatTime').text(elapsedTime);
                                 $('#answerTimeLog').text(`Last answer: ${elapsedTime} seconds\nAverage answer: ${averageTime} seconds\nRequests made: ${requestCount}`);
