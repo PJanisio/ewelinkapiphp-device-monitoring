@@ -64,14 +64,6 @@
             50% { transform: scale(1.25); }
             100% { transform: scale(0.75); }
         }
-        .columns {
-            display: flex;
-            flex-wrap: wrap;
-        }
-        .column {
-            flex: 1 1 30%;
-            margin-bottom: 10px;
-        }
     </style>
 </head>
 <body>
@@ -97,11 +89,13 @@
         <div id="parameters" class="mb-3">
             <h2 class="text-decoration-underline">Select Parameters to Monitor <span>&#9660;</span></h2>
             <div id="parameters-content">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="selectAll">
-                    <label class="form-check-label font-weight-bold" for="selectAll">Select All</label>
+                <div class="row">
+                    <div class="form-check col-md-4">
+                        <input class="form-check-input" type="checkbox" id="selectAll">
+                        <label class="form-check-label font-weight-bold" for="selectAll">Select All</label>
+                    </div>
                 </div>
-                <div id="paramForm" class="columns mt-2"></div>
+                <div id="paramForm" class="row mt-2"></div>
             </div>
             <button id="startMonitoring" class="btn btn-success mt-2" style="display: none;">Start Monitoring</button>
         </div>
@@ -273,7 +267,7 @@
                             let paramForm = $('#paramForm');
                             paramForm.empty();
                             for (let param in data.data) {
-                                paramForm.append('<div class="form-check column"><input class="form-check-input" type="checkbox" name="params" value="' + param + '"><label class="form-check-label">' + param + '</label></div>');
+                                paramForm.append('<div class="form-check col-md-4"><input class="form-check-input" type="checkbox" name="params" value="' + param + '"><label class="form-check-label">' + param + '</label></div>');
                             }
                             $('#startMonitoring').show();
                             $('#parameters-content').show();
