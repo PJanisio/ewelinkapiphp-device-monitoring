@@ -2,7 +2,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require_once __DIR__ . '/autoloader.php';
+require_once __DIR__ . '../../autoloader.php';
 
 $action = $_GET['action'] ?? null;
 $deviceIdentifier = $_GET['device'] ?? null;
@@ -30,9 +30,22 @@ try {
                 $response[] = [
                     'name' => $name,
                     'deviceid' => $deviceStatus['deviceid'],
-                    'productModel' => $deviceStatus['productModel']
+                    'productModel' => $deviceStatus['productModel'],
+                    'online' => $deviceStatus['online']
                 ];
             }
+            echo json_encode(['success' => true, 'data' => $response]);
+            break;
+        case 'updateDeviceState':
+            $newState = $_GET['newState'] ?? null;
+            if ($newState === null) {
+                echo json_encode(['success' => false, 'error' => 'New state not provided']);
+                break;
+            }
+            $params = [
+                'switch' => $newState
+            ];
+            $response = $devices->forceUpdateDevice($deviceIdentifier, $params);
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         default:

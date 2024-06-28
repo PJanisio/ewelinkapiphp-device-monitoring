@@ -11,12 +11,13 @@
 <body>
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center">
-            <h1 class="text-center w-100">Device Monitoring</h1>
+            <h1 class="text-center w-100"><a href="https://github.com/PJanisio/ewelinkapiphp-device-monitoring" target="_blank">Device Monitoring</a></h1>
             <div class="form-check form-switch ms-auto">
                 <input class="form-check-input" type="checkbox" id="darkModeToggle">
                 <label class="form-check-label" for="darkModeToggle"><span id="darkModeIcon" class="dark-icon"></span></label>
             </div>
         </div>
+        <h4 class="text-center">Websocket version with slow response :) HTTP coming soon</h4>
         <div id="loader" class="mt-2">
             <div class="progress" style="height: 30px;">
                 <div id="loader-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
@@ -48,6 +49,13 @@
             </div>
             <button id="stopMonitoring" class="btn btn-danger mt-2" style="display: none;">Stop Monitoring</button>
         </div>
+        <div id="deviceControl" class="mb-3" style="display: none;">
+            <h2>Device Control</h2>
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="deviceToggle">
+                <label class="form-check-label" for="deviceToggle" id="deviceToggleLabel">Device Control</label>
+            </div>
+        </div>
         <div id="deviceData" class="mb-3">
             <h2>Live Data</h2>
             <pre id="liveData" class="border p-3"></pre>
@@ -69,6 +77,6 @@
     <footer class="text-center mt-5">
         <p>&copy; <a href="https://github.com/PJanisio/ewelinkApiPhp">ewelinkApiPhp</a></p>
     </footer>
-    <script src="js/scripts.js?v3"></script>
+    <script src="js/scripts.js?v=<?=time()?>"></script>
 </body>
 </html>

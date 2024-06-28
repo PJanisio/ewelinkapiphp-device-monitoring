@@ -8,6 +8,7 @@ $(document).ready(function () {
     let failedRequestCount = 0;
     let pendingRequests = 0;
     let params = []; // Declare params here to make it available in the scope
+    let firstResponseReceived = false; // Flag to track the first response
 
     /**
      * Update the loader with progress and text
@@ -102,7 +103,18 @@ $(document).ready(function () {
                     let deviceSelect = $('#deviceId');
                     deviceSelect.empty();
                     data.data.forEach(device => {
-                        deviceSelect.append('<option value="' + device.deviceid + '">' + device.name + ' (' + device.deviceid + ' - ' + device.productModel + ')</option>');
+                        let option = $('<option>', {
+                            value: device.deviceid,
+                            text: device.name + ' (' + device.deviceid + ' - ' + device.productModel + ')',
+                            'data-device-name': device.name,
+                            'data-device-product': device.productModel,
+                            'data-device-status': device.online ? 'ONLINE' : 'OFFLINE'
+                        });
+                        if (!device.online) {
+                            option.attr('disabled', 'disabled');
+                            option.text(option.text() + ' (OFFLINE)');
+                        }
+                        deviceSelect.append(option);
                     });
                     updateLoader(60, 'Device list loaded.');
                     setTimeout(function() {
@@ -146,6 +158,16 @@ $(document).ready(function () {
                     setTimeout(function() {
                         $('#loader').hide();
                     }, 500);
+
+                    // Check if switch parameter is present and update the toggle state
+                    if (data.data.switch !== undefined) {
+                        let switchState = data.data.switch;
+                        $('#deviceToggle').prop('checked', switchState === 'on');
+                        updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
+                    }
+
+                    // Show the device control section
+                    $('#deviceControl').show();
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
                     updateLoader(100, 'Failed to fetch parameters.');
@@ -165,8 +187,10 @@ $(document).ready(function () {
         console.log('Starting monitoring for device ID:', deviceId, 'with interval:', interval);
         updateLoader(50, 'Starting monitoring...');
         updateLoader(60, 'Connecting to WebSocket...');
-        updateLoader(70, 'Sending heartbeat...');
-        updateLoader(80, 'Sending request...');
+        updateLoader(70, 'Sending request...');
+        updateLoader(80, 'Waiting for response...');
+        firstResponseReceived = false; // Reset flag when starting monitoring
+
         monitoringInterval = setInterval(function () {
             pendingRequests++;
             const startTime = performance.now();
@@ -211,6 +235,21 @@ $(document).ready(function () {
                             }
                             previousData[param] = data.data[param];
                         });
+
+                        // Check if switchStatus parameter is present
+                        if (!params.includes('switchStatus')) {
+                            params.push('switchStatus');
+                        }
+
+                        // Update toggle state based on fetched data
+                        updateToggleState(data.data);
+
+                        // Unlock the toggle switch after the first response
+                        if (!firstResponseReceived) {
+                            $('#deviceToggle').prop('disabled', false);
+                            firstResponseReceived = true;
+                        }
+
                         updateLoader(100, 'Monitoring started.');
                         setTimeout(function() {
                             $('#loader').hide();
@@ -241,18 +280,54 @@ $(document).ready(function () {
     }
 
     /**
-     * Stop monitoring device parameters
+     * Stop monitoring device parameters and update toggle state
      */
     function stopMonitoring() {
         console.log('Stopping monitoring');
         clearInterval(monitoringInterval);
         clearInterval(heartbeatInterval);
-        $('#loader').hide();
-        $('#parameters').show();
-        $('#fetchParams').show();
-        $('#stopMonitoring').hide();
-        $('#heartbeatLog').text('Monitoring stopped.');
-        updateWebSocketStatus(false);
+        updateLoader(50, 'Stopping monitoring...');
+        updateLoader(60, 'Fetching current parameters...');
+
+        let deviceId = $('#deviceId').val();
+        $.ajax({
+            url: 'php/websocket.php',
+            method: 'GET',
+            data: {
+                action: 'getAllParams',
+                device: deviceId
+            },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    // Update the toggle state based on the fetched parameters
+                    if (data.data.switch !== undefined) {
+                        let switchState = data.data.switch;
+                        $('#deviceToggle').prop('checked', switchState === 'on');
+                        updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
+                    }
+                    $('#loader').hide();
+                    $('#parameters').show();
+                    $('#fetchParams').show();
+                    $('#stopMonitoring').hide();
+                    $('#heartbeatLog').text('Monitoring stopped.');
+                    updateWebSocketStatus(false);
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to fetch current parameters.');
+                    setTimeout(function() {
+                        $('#loader').hide();
+                    }, 500);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to fetch current parameters.');
+                setTimeout(function() {
+                    $('#loader').hide();
+                }, 500);
+            }
+        });
     }
 
     /**
@@ -265,6 +340,29 @@ $(document).ready(function () {
         } else {
             wsIcon.removeClass('ws-online').addClass('ws-offline');
         }
+    }
+
+    /**
+     * Update toggle state based on fetched data
+     */
+    function updateToggleState(data) {
+        if (data.switch !== undefined) {
+            let switchState = data.switch;
+            $('#deviceToggle').prop('checked', switchState === 'on');
+            updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
+        }
+    }
+
+    /**
+     * Update the device toggle label with device details and status
+     */
+    function updateToggleLabel(status) {
+        let selectedDevice = $('#deviceId option:selected');
+        let deviceName = selectedDevice.data('device-name');
+        let deviceProduct = selectedDevice.data('device-product');
+        let statusClass = status === 'SWITCHED ON' ? 'text-success fw-bold' : 'text-danger fw-bold';
+        let labelText = `${deviceName} (${deviceProduct}) - <span class="${statusClass}">${status}</span>`;
+        $('#deviceToggleLabel').html(labelText);
     }
 
     // Event listener for fetch parameters button
@@ -321,6 +419,46 @@ $(document).ready(function () {
         if (!this.checked) {
             $('#selectAll').prop('checked', false);
         }
+    });
+
+    // Event listener for device switch toggle
+    $('#deviceToggle').change(function () {
+        let deviceId = $('#deviceId').val();
+        let newState = $('#deviceToggle').prop('checked') ? 'on' : 'off';
+
+        // Lock the toggle switch
+        $('#deviceToggle').prop('disabled', true);
+        $('#loader').show();
+        updateLoader(30, 'Updating device state...');
+        updateLoader(50, 'Waiting for response...');
+
+        // Send request to update the device state
+        $.ajax({
+            url: 'php/websocket.php',
+            method: 'GET',
+            data: {
+                action: 'updateDeviceState',
+                device: deviceId,
+                newState: newState
+            },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    console.log('Device state updated successfully');
+                    updateLoader(70, 'Fetching current parameters...');
+                    fetchDeviceParameters(deviceId);
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to update device state.');
+                    $('#deviceToggle').prop('disabled', false);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to update device state.');
+                $('#deviceToggle').prop('disabled', false);
+            }
+        });
     });
 
     // Initialize by checking authorization
