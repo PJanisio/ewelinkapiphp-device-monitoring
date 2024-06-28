@@ -1,0 +1,64 @@
+#loader {
+    text-align: center;
+    margin-top: 20px;
+    display: none;
+}
+#parameters h2 {
+    cursor: pointer;
+}
+#parameters h2 span {
+    font-size: 0.8em;
+    margin-left: 5px;
+}
+#parameters-content {
+    display: none;
+}
+.changed {
+    color: green;
+}
+.log-container {
+    border: 1px solid #ccc;
+    padding: 10px;
+    max-height: 50vh;
+    overflow-y: auto;
+}
+.ws-icon {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-left: 10px;
+}
+.ws-online {
+    background-color: green;
+    animation: pulse 1s infinite;
+}
+.ws-offline {
+    background-color: red;
+}
+.dark-mode {
+    background-color: #121212;
+    color: #ffffff;
+}
+.dark-mode .border {
+    border-color: #444444;
+}
+.dark-mode .form-control, 
+.dark-mode .form-check-input {
+    background-color: #333333;
+    color: #ffffff;
+}
+.form-check-label.font-weight-bold {
+    font-weight: bold;
+}
+@keyframes pulse {
+    0% { transform: scale(0.75); }
+    50% { transform: scale(1.25); }
+    100% { transform: scale(0.75); }
+}
+.dark-icon::before {
+    content: '🌑';
+}
+.light-icon::before {
+    content: '☀️';
+}
