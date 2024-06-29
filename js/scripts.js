@@ -446,7 +446,7 @@ $(document).ready(function () {
                 if (data.success) {
                     console.log('Device state updated successfully');
                     updateLoader(70, 'Fetching current parameters...');
-                    fetchDeviceParameters(deviceId);
+                    fetchCurrentDeviceState(deviceId);
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
                     updateLoader(100, 'Failed to update device state.');
@@ -460,6 +460,46 @@ $(document).ready(function () {
             }
         });
     });
+
+    // Function to fetch current device state after toggle
+    function fetchCurrentDeviceState(deviceId) {
+        $.ajax({
+            url: 'php/websocket.php',
+            method: 'GET',
+            data: {
+                action: 'getAllParams',
+                device: deviceId
+            },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    // Update the toggle state based on the fetched parameters
+                    if (data.data.switch !== undefined) {
+                        let switchState = data.data.switch;
+                        $('#deviceToggle').prop('checked', switchState === 'on');
+                        updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
+                    }
+                    $('#loader').hide();
+                    $('#deviceToggle').prop('disabled', false);
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to fetch current parameters.');
+                    $('#deviceToggle').prop('disabled', false);
+                    setTimeout(function() {
+                        $('#loader').hide();
+                    }, 500);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to fetch current parameters.');
+                $('#deviceToggle').prop('disabled', false);
+                setTimeout(function() {
+                    $('#loader').hide();
+                }, 500);
+            }
+        });
+    }
 
     // Initialize by checking authorization
     checkAuthorization();
