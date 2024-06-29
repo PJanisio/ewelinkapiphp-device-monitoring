@@ -17,7 +17,10 @@
                 <label class="form-check-label" for="darkModeToggle"><span id="darkModeIcon" class="dark-icon"></span></label>
             </div>
         </div>
-        <h4 class="text-center">Websocket version with slow response :) HTTP coming soon</h4>
+        <div class="d-flex justify-content-center mb-3">
+            <button id="useHttp" class="btn btn-outline-primary me-2">Use HTTP</button>
+            <button id="useWebSocket" class="btn btn-outline-secondary">Use WebSocket</button>
+        </div>
         <div id="loader" class="mt-2">
             <div class="progress" style="height: 30px;">
                 <div id="loader-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
@@ -27,7 +30,6 @@
         <div class="mb-3">
             <label for="deviceId" class="form-label">Device ID or Name:</label>
             <select id="deviceId" name="deviceId" class="form-control"></select>
-            <button id="fetchParams" class="btn btn-primary mt-2">Load Device Parameters</button>
         </div>
         <div id="parameters" class="mb-3">
             <h2 class="text-decoration-underline">Select Parameters to Monitor <span>&#9660;</span></h2>
@@ -45,7 +47,7 @@
         <div id="monitoringControls" class="mb-3">
             <div class="form-group">
                 <label for="requestInterval" class="form-label">Request Interval (seconds):</label>
-                <input type="number" id="requestInterval" name="requestInterval" class="form-control" value="15">
+                <input type="number" id="requestInterval" name="requestInterval" class="form-control" value="5">
             </div>
             <button id="stopMonitoring" class="btn btn-danger mt-2" style="display: none;">Stop Monitoring</button>
         </div>
@@ -67,6 +69,10 @@
         <div id="websocketsStats" class="mb-3">
             <h2>Websockets Stats</h2>
             <pre id="answerTimeLog" class="border p-3"></pre>
+        </div>
+        <div id="httpStats" class="mb-3" style="display: none;">
+            <h2>HTTP Stats</h2>
+            <pre id="answerTimeLogHttp" class="border p-3"></pre>
         </div>
         <div id="changesLog" class="mb-3">
             <h2>Changes Log</h2>
