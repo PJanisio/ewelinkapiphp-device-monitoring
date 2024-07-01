@@ -1,5 +1,5 @@
 # ewelinkapiphp-device-monitoring
-Example usage of ewelinkApiPhp featuring websockets device monitoring.
+Simple app writen with bootsrtap + jQuery to present functionality of ewelinkApiphp class.
 
 Download last release of API class: [HERE](https://github.com/PJanisio/ewelinkApiPhp/releases)
 How to Get started? [WIKI](https://github.com/PJanisio/ewelinkApiPhp/wiki)
@@ -8,10 +8,12 @@ How to Get started? [WIKI](https://github.com/PJanisio/ewelinkApiPhp/wiki)
 
 This repository is an example of using [ewelinkApiPhp](https://github.com/PJanisio/ewelinkApiPhp) featuring:
 
-- authentification
 - fetching all the devices connected to you ewelink mobile app
 - choosing parameters to monitor live with **changelog** and **websocket statistics**
+- switching **ON** and **OFF** the device
+- changing **EVERY** parameter of the device
 
 ## Screenshot
 
-![ewe_websocket](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/6cfd8d65-f4b6-4803-9f66-2fcba1656b01)
+![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-01-18_22_15](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/ed4973e1-a5cd-45dd-8a52-7469e4779d20)
+
