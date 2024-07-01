@@ -4,8 +4,9 @@ ini_set('display_errors', 1);
 
 require_once __DIR__ . '../../autoloader.php';
 
-$action = $_GET['action'] ?? null;
-$deviceIdentifier = $_GET['device'] ?? null;
+$action = $_GET['action'] ?? $_POST['action'] ?? null;
+$deviceIdentifier = $_GET['device'] ?? $_POST['device'] ?? null;
+$params = $_POST['params'] ?? null;
 
 $httpClient = new HttpClient();
 $devices = new Devices($httpClient);
@@ -37,14 +38,27 @@ try {
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'updateDeviceState':
-            $newState = $_GET['newState'] ?? null;
-            if ($newState === null) {
-                echo json_encode(['success' => false, 'error' => 'New state not provided']);
-                break;
-            }
-            $params = [
-                'switch' => $newState
-            ];
+    $newState = $_GET['newState'] ?? null;
+    $outlet = $_GET['outlet'] ?? null; // Add outlet parameter
+    if ($newState === null) {
+        echo json_encode(['success' => false, 'error' => 'New state not provided']);
+        break;
+    }
+    if ($outlet !== null) {
+        $params = [
+            'switch' => $newState,
+            'outlet' => (int)$outlet
+        ];
+    } else {
+        $params = [
+            'switch' => $newState
+        ];
+    }
+    $response = $devices->setDeviceStatus($deviceIdentifier, $params);
+    echo json_encode(['success' => true, 'data' => $response]);
+    break;
+        case 'setDeviceStatus':
+            $params = json_decode($params, true);
             $response = $devices->setDeviceStatus($deviceIdentifier, $params);
             echo json_encode(['success' => true, 'data' => $response]);
             break;
@@ -54,4 +68,3 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
-?>

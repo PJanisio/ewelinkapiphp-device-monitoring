@@ -3,23 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Device Monitoring</title>
+    <title>Sonoff - ewelink device monitoring</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 </head>
 <body>
     <div class="container mt-5">
         <div class="d-flex justify-content-between align-items-center">
-            <h1 class="text-center w-100"><a href="https://github.com/PJanisio/ewelinkapiphp-device-monitoring" target="_blank">Device Monitoring</a></h1>
+            <h1 class="text-center w-100" id="animatedTitle">
+                <i class="fas fa-chart-line me-2"></i>
+                Sonoff - ewelink device monitoring
+            </h1>
             <div class="form-check form-switch ms-auto">
                 <input class="form-check-input" type="checkbox" id="darkModeToggle">
-                <label class="form-check-label" for="darkModeToggle"><span id="darkModeIcon" class="dark-icon"></span></label>
+                <label class="form-check-label" for="darkModeToggle"><span id="darkModeIcon" class="fa"></span></label>
             </div>
         </div>
         <div class="d-flex justify-content-center mb-3">
-            <button id="useHttp" class="btn btn-outline-primary me-2">Use HTTP</button>
-            <button id="useWebSocket" class="btn btn-outline-secondary">Use WebSocket</button>
+            <button id="useHttp" class="btn btn-outline-primary me-2">
+                <i class="fas fa-bolt me-2"></i>Use HTTP
+            </button>
+            <button id="useWebSocket" class="btn btn-outline-secondary">
+                <i class="fas fa-hourglass-half me-2"></i>Use WebSocket
+            </button>
         </div>
         <div id="loader" class="mt-2">
             <div class="progress" style="height: 30px;">
@@ -31,7 +39,7 @@
             <label for="deviceId" class="form-label">Device ID or Name:</label>
             <select id="deviceId" name="deviceId" class="form-control"></select>
         </div>
-        <div id="parameters" class="mb-3">
+        <div id="parameters" class="mb-3" style="display: none;">
             <h2 class="text-decoration-underline">Select Parameters to Monitor <span>&#9660;</span></h2>
             <div id="parameters-content">
                 <div class="row">
@@ -51,13 +59,15 @@
             </div>
             <button id="stopMonitoring" class="btn btn-danger mt-2" style="display: none;">Stop Monitoring</button>
         </div>
-        <div id="deviceControl" class="mb-3" style="display: none;">
-            <h2>Device Control</h2>
-            <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="deviceToggle">
-                <label class="form-check-label" for="deviceToggle" id="deviceToggleLabel">Device Control</label>
+            <!-- Update Device Control Section -->
+            <div id="deviceControl" class="mb-3" style="display: none;">
+                <h2>Device Control</h2>
+            <div id="multiChannelToggles">
+            <!-- Dynamic Toggle Switches will be added here -->
             </div>
+            <button id="advancedControl" class="btn btn-warning mt-2">Advanced Control</button>
         </div>
+
         <div id="deviceData" class="mb-3">
             <h2>Live Data</h2>
             <pre id="liveData" class="border p-3"></pre>
@@ -81,8 +91,38 @@
     </div>
     <audio id="notificationSound" src="audio/ding.wav" preload="auto"></audio>
     <footer class="text-center mt-5">
-        <p>&copy; <a href="https://github.com/PJanisio/ewelinkApiPhp">ewelinkApiPhp</a></p>
+        <p>&copy; powered by <a href="https://github.com/PJanisio/ewelinkApiPhp" target="_blank">ewelinkApiPhp</a> and <a href="https://github.com/PJanisio/ewelinkapiphp-device-monitoring" target="_blank">Device Monitoring</a></p>
     </footer>
-    <script src="js/scripts.js?v=<?=time()?>"></script>
+    <!-- Modal for Advanced Control -->
+    <div class="modal fade" id="advancedControlModal" tabindex="-1" aria-labelledby="advancedControlModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="advancedControlModalLabel">Advanced Control</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="modal-loader" class="mt-2">
+                        <div class="progress" style="height: 30px;">
+                            <div id="modal-loader-progress" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;">0%</div>
+                        </div>
+                        <div id="modal-loader-text" class="mt-2">Connecting and fetching data...</div>
+                    </div>
+                    <p class="text-danger">Please carefully choose parameters and values for change, in case of error you could have to pair device again and in worst case your device can be broken.</p>
+                    <form id="advancedControlForm">
+                        <div class="row" id="advancedControlFormContent">
+                            <!-- Dynamic form content will be loaded here -->
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="sendAdvancedControl">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="js/scripts.js?v=<?php echo time(); ?>"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

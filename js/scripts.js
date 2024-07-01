@@ -15,10 +15,16 @@ $(document).ready(function () {
      * Update the loader progress and text
      * @param {number} progress - Progress percentage
      * @param {string} text - Text to display in the loader
+     * @param {boolean} isModal - Whether the loader is for a modal window
      */
-    function updateLoader(progress, text) {
-        $('#loader-progress').css('width', progress + '%').text(progress + '%');
-        $('#loader-text').text(text);
+    function updateLoader(progress, text, isModal = false) {
+        if (isModal) {
+            $('#modal-loader-progress').css('width', progress + '%').text(progress + '%');
+            $('#modal-loader-text').text(text);
+        } else {
+            $('#loader-progress').css('width', progress + '%').text(progress + '%');
+            $('#loader-text').text(text);
+        }
     }
 
     // Show loader and initialize theme
@@ -33,11 +39,11 @@ $(document).ready(function () {
         if (theme === 'dark') {
             $('html').attr('data-bs-theme', 'dark');
             $('#darkModeToggle').prop('checked', true);
-            $('#darkModeIcon').addClass('dark-icon').removeClass('light-icon');
+            $('#darkModeIcon').removeClass('fa-sun').addClass('fa-moon');
         } else {
             $('html').attr('data-bs-theme', 'light');
             $('#darkModeToggle').prop('checked', false);
-            $('#darkModeIcon').addClass('light-icon').removeClass('dark-icon');
+            $('#darkModeIcon').removeClass('fa-moon').addClass('fa-sun');
         }
     }
 
@@ -103,6 +109,7 @@ $(document).ready(function () {
                 if (data.success) {
                     let deviceSelect = $('#deviceId');
                     deviceSelect.empty();
+                    deviceSelect.append('<option value="">Select Device</option>');
                     data.data.forEach(device => {
                         let option = $('<option>', {
                             value: device.deviceid,
@@ -149,20 +156,21 @@ $(document).ready(function () {
                     let paramForm = $('#paramForm');
                     paramForm.empty();
                     for (let param in data.data) {
+                        let value = data.data[param];
+                        if (typeof value === 'object' && !Array.isArray(value)) {
+                            continue; // Skip parameters with [object Object] values
+                        }
                         paramForm.append('<div class="form-check col-md-4"><input class="form-check-input" type="checkbox" name="params" value="' + param + '"><label class="form-check-label">' + param + '</label></div>');
                     }
                     $('#startMonitoring').show();
                     $('#parameters-content').show();
+                    $('#parameters').show(); // Unhide the parameters section
                     updateLoader(80, 'Parameters loaded.');
                     setTimeout(function () {
                         $('#loader').hide();
                     }, 500);
 
-                    if (data.data.switch !== undefined) {
-                        let switchState = data.data.switch;
-                        $('#deviceToggle').prop('checked', switchState === 'on');
-                        updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
-                    }
+                    updateDeviceToggles(data.data);
 
                     $('#deviceControl').show();
                 } else {
@@ -173,6 +181,106 @@ $(document).ready(function () {
             error: function (xhr, status, error) {
                 console.error(error);
                 updateLoader(100, 'Failed to fetch parameters.');
+            }
+        });
+    }
+
+    // Function to update device toggles for multi-channel devices
+    function updateDeviceToggles(data) {
+        let multiChannelToggles = $('#multiChannelToggles');
+        multiChannelToggles.empty();
+        if (data.switches !== undefined && Array.isArray(data.switches)) {
+            data.switches.forEach((switchState, index) => {
+                let switchId = `deviceToggle_${index}`;
+                let switchLabel = `Switch ${index + 1}`;
+                multiChannelToggles.append(`
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="${switchId}" data-index="${index}" ${switchState.switch === 'on' ? 'checked' : ''}>
+                        <label class="form-check-label" for="${switchId}">${switchLabel}</label>
+                    </div>
+                `);
+            });
+
+            multiChannelToggles.find('.form-check-input').change(function () {
+                let deviceId = $('#deviceId').val();
+                let index = $(this).data('index');
+                let newState = $(this).prop('checked') ? 'on' : 'off';
+                updateDeviceSwitchState(deviceId, index, newState);
+            });
+        } else {
+            multiChannelToggles.append(`
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="deviceToggle" ${data.switch === 'on' ? 'checked' : ''}>
+                    <label class="form-check-label" for="deviceToggle">Device Control</label>
+                </div>
+            `);
+            multiChannelToggles.append('<div id="deviceToggleLabel"></div>');
+
+            $('#deviceToggle').change(function () {
+                let deviceId = $('#deviceId').val();
+                let newState = $(this).prop('checked') ? 'on' : 'off';
+                updateDeviceState(deviceId, newState);
+            });
+
+            let initialStatus = data.switch === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF';
+            updateToggleLabel(initialStatus);
+        }
+    }
+
+    // Function to update the device state for single-channel devices
+    function updateDeviceState(deviceId, newState) {
+        $('#loader').show();
+        updateLoader(30, 'Updating device state...');
+        updateLoader(50, 'Waiting for response...');
+        $.ajax({
+            url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
+            method: 'GET',
+            data: { action: 'updateDeviceState', device: deviceId, newState: newState },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    console.log('Device state updated successfully');
+                    updateLoader(70, 'Fetching current parameters...');
+                    fetchDeviceParameters(deviceId); // This will update the toggle state based on the actual device state
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to update device state.');
+                    $('#deviceToggle').prop('disabled', false); // Enable the toggle in case of error
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to update device state.');
+                $('#deviceToggle').prop('disabled', false); // Enable the toggle in case of error
+            }
+        });
+    }
+
+    // Function to update the device state for multi-channel devices
+    function updateDeviceSwitchState(deviceId, index, newState) {
+        $('#loader').show();
+        updateLoader(30, 'Updating device switch state...');
+        updateLoader(50, 'Waiting for response...');
+        $.ajax({
+            url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
+            method: 'GET',
+            data: { action: 'updateDeviceState', device: deviceId, newState: newState, outlet: index },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    console.log('Device switch state updated successfully');
+                    updateLoader(70, 'Fetching current parameters...');
+                    fetchDeviceParameters(deviceId); // This will update the toggle state based on the actual device state
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to update device switch state.');
+                    $('#deviceToggle_' + index).prop('disabled', false); // Enable the toggle in case of error
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to update device switch state.');
+                $('#deviceToggle_' + index).prop('disabled', false); // Enable the toggle in case of error
             }
         });
     }
@@ -220,7 +328,7 @@ $(document).ready(function () {
 
                         params.forEach(param => {
                             if (previousData[param] !== undefined && previousData[param] !== data.data[param]) {
-                                let logEntry = '<div class="changed">Time: ' + new Date().toLocaleTimeString() + ' - Parameter: ' + param + ' - Old Value: ' + previousData[param] + ' - New Value: ' + data.data[param] + '</div>';
+                                let logEntry = '<div>Time: ' + new Date().toLocaleTimeString() + ' - Parameter: ' + param + ' - Old Value: <span class="changed-value">' + previousData[param] + '</span> - New Value: <span class="changed-value">' + data.data[param] + '</span></div>';
                                 changesContainer.prepend(logEntry);
 
                                 $('#notificationSound')[0].play();
@@ -296,11 +404,7 @@ $(document).ready(function () {
             success: function (response) {
                 let data = typeof response === 'string' ? JSON.parse(response) : response;
                 if (data.success) {
-                    if (data.data.switch !== undefined) {
-                        let switchState = data.data.switch;
-                        $('#deviceToggle').prop('checked', switchState === 'on');
-                        updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
-                    }
+                    updateDeviceToggles(data.data);
                     $('#loader').hide();
                     $('#parameters').show();
                     $('#stopMonitoring').hide();
@@ -346,7 +450,6 @@ $(document).ready(function () {
             let switchState = data.switch;
             $('#deviceToggle').prop('checked', switchState === 'on');
             updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
-            $('#deviceToggle').prop('disabled', false); // Ensure toggle is enabled
         }
     }
 
@@ -415,38 +518,6 @@ $(document).ready(function () {
         }
     });
 
-    // Toggle device state on checkbox change
-    $('#deviceToggle').change(function () {
-        let deviceId = $('#deviceId').val();
-        let newState = $('#deviceToggle').prop('checked') ? 'on' : 'off';
-        $('#deviceToggle').prop('disabled', true);
-        $('#loader').show();
-        updateLoader(30, 'Updating device state...');
-        updateLoader(50, 'Waiting for response...');
-        $.ajax({
-            url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
-            method: 'GET',
-            data: { action: 'updateDeviceState', device: deviceId, newState: newState },
-            success: function (response) {
-                let data = typeof response === 'string' ? JSON.parse(response) : response;
-                if (data.success) {
-                    console.log('Device state updated successfully');
-                    updateLoader(70, 'Fetching current parameters...');
-                    fetchDeviceParameters(deviceId);
-                } else {
-                    console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to update device state.');
-                    $('#deviceToggle').prop('disabled', false);
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error(error);
-                updateLoader(100, 'Failed to update device state.');
-                $('#deviceToggle').prop('disabled', false);
-            }
-        });
-    });
-
     // Switch to HTTP monitoring
     $('#useHttp').click(function () {
         if (useWebSocket) {
@@ -469,6 +540,7 @@ $(document).ready(function () {
             stopMonitoring();
         }
         useWebSocket = true;
+        $('#requestInterval').val(15); // Default interval for WebSocket
         $('#httpStats').hide();
         $('#websocketsStats').show();
         $('#heartbeat').show();
@@ -482,4 +554,138 @@ $(document).ready(function () {
     // Check authorization and load initial data
     checkAuthorization();
     $('#useHttp').click(); // Use HTTP by default
+
+    // Open Advanced Control modal
+    $('#advancedControl').click(function () {
+        let deviceId = $('#deviceId').val();
+        if (!deviceId) {
+            alert('Please select a device');
+            return;
+        }
+        $('#modal-loader').show();
+        updateLoader(20, 'Fetching device parameters for advanced control...', true);
+        $.ajax({
+            url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
+            method: 'GET',
+            data: { action: 'getAllParams', device: deviceId },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    let formContent = $('#advancedControlFormContent');
+                    formContent.empty();
+
+                    // Add color picker if color parameters exist
+                    if (data.data.colorR !== undefined && data.data.colorG !== undefined && data.data.colorB !== undefined) {
+                        formContent.append(`
+                            <div class="mb-3 col-md-12">
+                                <label for="colorPicker" class="form-label">Select Color for: colorR, colorG, colorB</label>
+                                <input type="color" class="form-control" id="colorPicker" value="#000000">
+                            </div>
+                        `);
+                        $('#colorPicker').change(function () {
+                            let color = $(this).val();
+                            let r = parseInt(color.slice(1, 3), 16);
+                            let g = parseInt(color.slice(3, 5), 16);
+                            let b = parseInt(color.slice(5, 7), 16);
+                            $('#colorR').val(r);
+                            $('#colorG').val(g);
+                            $('#colorB').val(b);
+                        });
+                    }
+
+                    for (let param in data.data) {
+                        let value = data.data[param];
+                        if (typeof value === 'object' && !Array.isArray(value)) {
+                            continue; // Skip parameters with [object Object] values
+                        }
+                        if (Array.isArray(value)) {
+                            value.forEach((subValue, index) => {
+                                if (typeof subValue === 'object') {
+                                    for (let subParam in subValue) {
+                                        formContent.append(`
+                                            <div class="mb-3 col-md-6">
+                                                <label for="${param}_${index}_${subParam}" class="form-label">${param}[${index}].${subParam}</label>
+                                                <input type="text" class="form-control" id="${param}_${index}_${subParam}" name="${param}[${index}].${subParam}" value="${subValue[subParam]}">
+                                            </div>
+                                        `);
+                                    }
+                                } else {
+                                    formContent.append(`
+                                        <div class="mb-3 col-md-6">
+                                            <label for="${param}_${index}" class="form-label">${param}[${index}]</label>
+                                            <input type="text" class="form-control" id="${param}_${index}" name="${param}[${index}]" value="${subValue}">
+                                        </div>
+                                    `);
+                                }
+                            });
+                        } else {
+                            formContent.append(`
+                                <div class="mb-3 col-md-6">
+                                    <label for="${param}" class="form-label">${param}</label>
+                                    <input type="text" class="form-control" id="${param}" name="${param}" value="${value}">
+                                </div>
+                            `);
+                        }
+                    }
+
+                    $('#advancedControlModal').modal('show');
+                    updateLoader(100, 'Parameters loaded.', true);
+                    setTimeout(function () {
+                        $('#modal-loader').hide();
+                    }, 500);
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to fetch parameters.', true);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to fetch parameters.', true);
+            }
+        });
+    });
+
+    // Handle Advanced Control form submission
+    $('#sendAdvancedControl').click(function () {
+        let deviceId = $('#deviceId').val();
+        let formData = $('#advancedControlForm').serializeArray();
+        let params = {};
+        formData.forEach(item => {
+            let keys = item.name.split('[').map(k => k.replace(']', ''));
+            let lastKey = keys.pop();
+            let nestedParam = keys.reduce((obj, key) => obj[key] = obj[key] || {}, params);
+            nestedParam[lastKey] = item.value;
+        });
+
+        $('#modal-loader').show();
+        updateLoader(30, 'Sending updated parameters...', true);
+        let action = useWebSocket ? 'forceUpdateDevice' : 'setDeviceStatus';
+        $.ajax({
+            url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
+            method: 'POST',
+            data: {
+                action: action,
+                device: deviceId,
+                params: JSON.stringify(params)
+            },
+            success: function (response) {
+                let data = typeof response === 'string' ? JSON.parse(response) : response;
+                if (data.success) {
+                    console.log('Device parameters updated successfully');
+                    updateLoader(100, 'Parameters updated successfully.', true);
+                    setTimeout(function () {
+                        $('#modal-loader').hide();
+                    }, 500);
+                    $('#advancedControlModal').modal('hide');
+                } else {
+                    console.error(data.error ? data.error : 'Unknown error');
+                    updateLoader(100, 'Failed to update parameters.', true);
+                }
+            },
+            error: function (xhr, status, error) {
+                console.error(error);
+                updateLoader(100, 'Failed to update parameters.', true);
+            }
+        });
+    });
 });

@@ -1,4 +1,4 @@
-#loader {
+#loader, #modal-loader {
     text-align: center;
     margin-top: 20px;
     display: none;
@@ -51,14 +51,11 @@
 .form-check-label.font-weight-bold {
     font-weight: bold;
 }
+.changed-value {
+    color: green;
+}
 @keyframes pulse {
     0% { transform: scale(0.75); }
     50% { transform: scale(1.25); }
     100% { transform: scale(0.75); }
-}
-.dark-icon::before {
-    content: '🌑';
-}
-.light-icon::before {
-    content: '☀️';
 }
