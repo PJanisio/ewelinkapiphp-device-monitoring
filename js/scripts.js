@@ -22,14 +22,14 @@ $(document).ready(function () {
             $('#modal-loader-progress').css('width', progress + '%').text(progress + '%');
             $('#modal-loader-text').text(text);
         } else {
-            $('#loader-progress').css('width', progress + '%').text(progress + '%');
-            $('#loader-text').text(text);
+            $('#progressBar').css('width', progress + '%').text(progress + '%');
+            $('#progressText').text(text);
         }
     }
 
     // Show loader and initialize theme
-    $('#loader').show();
-    updateLoader(10, 'Loading Device List...');
+    showProgressModal();
+    updateLoader(10, 'Loading Device List...', false);
 
     /**
      * Apply the selected theme
@@ -82,16 +82,16 @@ $(document).ready(function () {
                 if (data.redirect) {
                     window.location.href = data.redirect;
                 } else if (data.success) {
-                    updateLoader(40, 'Authorization successful. Fetching devices...');
+                    updateLoader(40, 'Authorization successful. Fetching devices...', false);
                     fetchDevices();
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Authorization failed.');
+                    updateLoader(100, 'Authorization failed.', false);
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
-                updateLoader(100, 'Authorization failed.');
+                updateLoader(100, 'Authorization failed.', false);
             }
         });
     }
@@ -108,6 +108,7 @@ $(document).ready(function () {
                 let data = typeof response === 'string' ? JSON.parse(response) : response;
                 if (data.success) {
                     let deviceSelect = $('#deviceId');
+                    let currentDevice = deviceSelect.val();  // Save the current selection
                     deviceSelect.empty();
                     deviceSelect.append('<option value="">Select Device</option>');
                     data.data.forEach(device => {
@@ -124,18 +125,19 @@ $(document).ready(function () {
                         }
                         deviceSelect.append(option);
                     });
-                    updateLoader(60, 'Device list loaded.');
+                    deviceSelect.val(currentDevice);  // Restore the previous selection
+                    updateLoader(100, 'Device list loaded.', false);
                     setTimeout(function () {
-                        $('#loader').hide();
+                        $('#progressModal').modal('hide');
                     }, 500);
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to load device list.');
+                    updateLoader(100, 'Failed to load device list.', false);
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
-                updateLoader(100, 'Failed to load device list.');
+                updateLoader(100, 'Failed to load device list.', false);
             }
         });
     }
@@ -165,9 +167,10 @@ $(document).ready(function () {
                     $('#startMonitoring').show();
                     $('#parameters-content').show();
                     $('#parameters').show(); // Unhide the parameters section
-                    updateLoader(80, 'Parameters loaded.');
+                    $('#monitoringControls').show(); // Show request interval
+                    updateLoader(100, 'Parameters loaded.', false);
                     setTimeout(function () {
-                        $('#loader').hide();
+                        $('#progressModal').modal('hide');
                     }, 500);
 
                     updateDeviceToggles(data.data);
@@ -175,12 +178,12 @@ $(document).ready(function () {
                     $('#deviceControl').show();
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to fetch parameters.');
+                    updateLoader(100, 'Failed to fetch parameters.', false);
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
-                updateLoader(100, 'Failed to fetch parameters.');
+                updateLoader(100, 'Failed to fetch parameters.', false);
             }
         });
     }
@@ -209,12 +212,14 @@ $(document).ready(function () {
             });
         } else {
             multiChannelToggles.append(`
-                <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="deviceToggle" ${data.switch === 'on' ? 'checked' : ''}>
-                    <label class="form-check-label" for="deviceToggle">Device Control</label>
+                <div class="d-flex align-items-center">
+                    <div class="form-check form-switch me-3">
+                        <input class="form-check-input" type="checkbox" id="deviceToggle" ${data.switch === 'on' ? 'checked' : ''}>
+                        <label class="form-check-label" for="deviceToggle">Turn ON/OFF device:</label>
+                    </div>
+                    <div id="deviceToggleLabel" class="ms-2"></div>
                 </div>
             `);
-            multiChannelToggles.append('<div id="deviceToggleLabel"></div>');
 
             $('#deviceToggle').change(function () {
                 let deviceId = $('#deviceId').val();
@@ -222,16 +227,16 @@ $(document).ready(function () {
                 updateDeviceState(deviceId, newState);
             });
 
-            let initialStatus = data.switch === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF';
+            let initialStatus = data.switch === 'on' ? 'on' : 'off';
             updateToggleLabel(initialStatus);
         }
     }
 
     // Function to update the device state for single-channel devices
     function updateDeviceState(deviceId, newState) {
-        $('#loader').show();
-        updateLoader(30, 'Updating device state...');
-        updateLoader(50, 'Waiting for response...');
+        showProgressModal();
+        updateLoader(30, 'Updating device state...', false);
+        updateLoader(50, 'Waiting for response...', false);
         $.ajax({
             url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
             method: 'GET',
@@ -240,17 +245,20 @@ $(document).ready(function () {
                 let data = typeof response === 'string' ? JSON.parse(response) : response;
                 if (data.success) {
                     console.log('Device state updated successfully');
-                    updateLoader(70, 'Fetching current parameters...');
+                    updateLoader(100, 'Device state updated.', false);
+                    setTimeout(function () {
+                        $('#progressModal').modal('hide');
+                    }, 500);
                     fetchDeviceParameters(deviceId); // This will update the toggle state based on the actual device state
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to update device state.');
+                    updateLoader(100, 'Failed to update device state.', false);
                     $('#deviceToggle').prop('disabled', false); // Enable the toggle in case of error
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
-                updateLoader(100, 'Failed to update device state.');
+                updateLoader(100, 'Failed to update device state.', false);
                 $('#deviceToggle').prop('disabled', false); // Enable the toggle in case of error
             }
         });
@@ -258,9 +266,9 @@ $(document).ready(function () {
 
     // Function to update the device state for multi-channel devices
     function updateDeviceSwitchState(deviceId, index, newState) {
-        $('#loader').show();
-        updateLoader(30, 'Updating device switch state...');
-        updateLoader(50, 'Waiting for response...');
+        showProgressModal();
+        updateLoader(30, 'Updating device switch state...', false);
+        updateLoader(50, 'Waiting for response...', false);
         $.ajax({
             url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
             method: 'GET',
@@ -269,17 +277,20 @@ $(document).ready(function () {
                 let data = typeof response === 'string' ? JSON.parse(response) : response;
                 if (data.success) {
                     console.log('Device switch state updated successfully');
-                    updateLoader(70, 'Fetching current parameters...');
+                    updateLoader(100, 'Device switch state updated.', false);
+                    setTimeout(function () {
+                        $('#progressModal').modal('hide');
+                    }, 500);
                     fetchDeviceParameters(deviceId); // This will update the toggle state based on the actual device state
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to update device switch state.');
+                    updateLoader(100, 'Failed to update device switch state.', false);
                     $('#deviceToggle_' + index).prop('disabled', false); // Enable the toggle in case of error
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
-                updateLoader(100, 'Failed to update device switch state.');
+                updateLoader(100, 'Failed to update device switch state.', false);
                 $('#deviceToggle_' + index).prop('disabled', false); // Enable the toggle in case of error
             }
         });
@@ -292,11 +303,20 @@ $(document).ready(function () {
      */
     function startMonitoring(deviceId, interval) {
         console.log('Starting monitoring for device ID:', deviceId, 'with interval:', interval);
-        updateLoader(50, 'Starting monitoring...');
-        updateLoader(60, 'Connecting...');
-        updateLoader(70, 'Sending request...');
-        updateLoader(80, 'Waiting for response...');
+        updateLoader(50, 'Starting monitoring...', false);
+        updateLoader(60, 'Connecting...', false);
+        updateLoader(70, 'Sending request...', false);
+        updateLoader(80, 'Waiting for response...', false);
         firstResponseReceived = false;
+
+        // Show hidden sections
+        $('#deviceData').show();
+        if (useWebSocket) {
+            $('#heartbeat, #websocketsStats').show();
+        } else {
+            $('#httpStats').show();
+        }
+        $('#changesLog').show();
 
         monitoringInterval = setInterval(function () {
             pendingRequests++;
@@ -343,9 +363,9 @@ $(document).ready(function () {
                             firstResponseReceived = true;
                         }
 
-                        updateLoader(100, 'Monitoring started.');
+                        updateLoader(100, 'Monitoring started.', false);
                         setTimeout(function () {
-                            $('#loader').hide();
+                            $('#progressModal').modal('hide');
                         }, 500);
                         updateWebSocketStatus(true);
                         $('#heartbeatTime').text(elapsedTime);
@@ -393,8 +413,9 @@ $(document).ready(function () {
         console.log('Stopping monitoring');
         clearInterval(monitoringInterval);
         clearInterval(heartbeatInterval);
-        updateLoader(50, 'Stopping monitoring...');
-        updateLoader(60, 'Fetching current parameters...');
+        showProgressModal();
+        updateLoader(50, 'Stopping monitoring...', false);
+        updateLoader(60, 'Fetching current parameters...', false);
 
         let deviceId = $('#deviceId').val();
         $.ajax({
@@ -405,24 +426,26 @@ $(document).ready(function () {
                 let data = typeof response === 'string' ? JSON.parse(response) : response;
                 if (data.success) {
                     updateDeviceToggles(data.data);
-                    $('#loader').hide();
+                    $('#progressModal').modal('hide');
                     $('#parameters').show();
                     $('#stopMonitoring').hide();
                     $('#heartbeatLog').text('Monitoring stopped.');
                     updateWebSocketStatus(false);
+                    // Hide sections after stopping monitoring
+                    $('#deviceData, #heartbeat, #websocketsStats, #httpStats, #changesLog, #monitoringControls').hide();
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to fetch current parameters.');
+                    updateLoader(100, 'Failed to fetch current parameters.', false);
                     setTimeout(function () {
-                        $('#loader').hide();
+                        $('#progressModal').modal('hide');
                     }, 500);
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
-                updateLoader(100, 'Failed to fetch current parameters.');
+                updateLoader(100, 'Failed to fetch current parameters.', false);
                 setTimeout(function () {
-                    $('#loader').hide();
+                    $('#progressModal').modal('hide');
                 }, 500);
             }
         });
@@ -449,7 +472,7 @@ $(document).ready(function () {
         if (data.switch !== undefined) {
             let switchState = data.switch;
             $('#deviceToggle').prop('checked', switchState === 'on');
-            updateToggleLabel(switchState === 'on' ? 'SWITCHED ON' : 'SWITCHED OFF');
+            updateToggleLabel(switchState === 'on' ? 'on' : 'off');
         }
     }
 
@@ -461,8 +484,8 @@ $(document).ready(function () {
         let selectedDevice = $('#deviceId option:selected');
         let deviceName = selectedDevice.data('device-name');
         let deviceProduct = selectedDevice.data('device-product');
-        let statusClass = status === 'SWITCHED ON' ? 'text-success fw-bold' : 'text-danger fw-bold';
-        let labelText = `${deviceName} (${deviceProduct}) - <span class="${statusClass}">${status}</span>`;
+        let statusClass = status === 'on' ? 'ws-online' : 'ws-offline';
+        let labelText = `${deviceName} (${deviceProduct}) - <span class="ws-icon ${statusClass}"></span>`;
         $('#deviceToggleLabel').html(labelText);
     }
 
@@ -473,8 +496,8 @@ $(document).ready(function () {
             alert('Please select a device');
             return;
         }
-        $('#loader').show();
-        updateLoader(20, 'Fetching device parameters...');
+        showProgressModal();
+        updateLoader(20, 'Fetching device parameters...', false);
         fetchDeviceParameters(deviceId);
     });
 
@@ -494,8 +517,8 @@ $(document).ready(function () {
             alert('Interval must be at least 1 second.');
             return;
         }
-        $('#loader').show();
-        updateLoader(30, 'Connecting...');
+        showProgressModal();
+        updateLoader(30, 'Connecting...', false);
         $('#parameters').hide();
         startMonitoring(deviceId, interval);
         $('#stopMonitoring').show();
@@ -524,13 +547,12 @@ $(document).ready(function () {
             stopMonitoring();
         }
         useWebSocket = false;
-        $('#httpStats').show();
-        $('#websocketsStats').hide();
-        $('#heartbeat').hide();
+        $('#heartbeat, #websocketsStats').hide();
         $('#useHttp').removeClass('btn-outline-primary').addClass('btn-primary');
         $('#useWebSocket').removeClass('btn-primary').addClass('btn-outline-secondary');
-        $('#loader').show();
-        updateLoader(10, 'Switching to HTTP...');
+        $('#monitoringControls').hide(); // Hide request interval
+        showProgressModal();
+        updateLoader(10, 'Switching to HTTP...', false);
         fetchDevices();
     });
 
@@ -542,12 +564,11 @@ $(document).ready(function () {
         useWebSocket = true;
         $('#requestInterval').val(15); // Default interval for WebSocket
         $('#httpStats').hide();
-        $('#websocketsStats').show();
-        $('#heartbeat').show();
         $('#useHttp').removeClass('btn-primary').addClass('btn-outline-primary');
         $('#useWebSocket').removeClass('btn-outline-secondary').addClass('btn-primary');
-        $('#loader').show();
-        updateLoader(10, 'Switching to WebSocket...');
+        $('#monitoringControls').hide(); // Hide request interval
+        showProgressModal();
+        updateLoader(10, 'Switching to WebSocket...', false);
         fetchDevices();
     });
 
@@ -562,7 +583,7 @@ $(document).ready(function () {
             alert('Please select a device');
             return;
         }
-        $('#modal-loader').show();
+        showProgressModal(true);
         updateLoader(20, 'Fetching device parameters for advanced control...', true);
         $.ajax({
             url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
@@ -631,16 +652,22 @@ $(document).ready(function () {
                     $('#advancedControlModal').modal('show');
                     updateLoader(100, 'Parameters loaded.', true);
                     setTimeout(function () {
-                        $('#modal-loader').hide();
+                        $('#modalProgressModal').modal('hide');
                     }, 500);
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
                     updateLoader(100, 'Failed to fetch parameters.', true);
+                    setTimeout(function () {
+                        $('#modalProgressModal').modal('hide');
+                    }, 500);
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
                 updateLoader(100, 'Failed to fetch parameters.', true);
+                setTimeout(function () {
+                    $('#modalProgressModal').modal('hide');
+                }, 500);
             }
         });
     });
@@ -657,7 +684,7 @@ $(document).ready(function () {
             nestedParam[lastKey] = item.value;
         });
 
-        $('#modal-loader').show();
+        showProgressModal(true);
         updateLoader(30, 'Sending updated parameters...', true);
         let action = useWebSocket ? 'forceUpdateDevice' : 'setDeviceStatus';
         $.ajax({
@@ -674,18 +701,36 @@ $(document).ready(function () {
                     console.log('Device parameters updated successfully');
                     updateLoader(100, 'Parameters updated successfully.', true);
                     setTimeout(function () {
-                        $('#modal-loader').hide();
+                        $('#modalProgressModal').modal('hide');
                     }, 500);
                     $('#advancedControlModal').modal('hide');
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
                     updateLoader(100, 'Failed to update parameters.', true);
+                    setTimeout(function () {
+                        $('#modalProgressModal').modal('hide');
+                    }, 500);
                 }
             },
             error: function (xhr, status, error) {
                 console.error(error);
                 updateLoader(100, 'Failed to update parameters.', true);
+                setTimeout(function () {
+                    $('#modalProgressModal').modal('hide');
+                }, 500);
             }
         });
     });
+
+    /**
+     * Show the progress modal
+     * @param {boolean} isModal - Whether it is for a modal window
+     */
+    function showProgressModal(isModal = false) {
+        if (isModal) {
+            $('#modalProgressModal').modal('show');
+        } else {
+            $('#progressModal').modal('show');
+        }
+    }
 });
