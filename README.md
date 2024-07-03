@@ -15,5 +15,9 @@ This repository is an example of using [ewelinkApiPhp](https://github.com/PJanis
 
 ## Screenshot
 
-![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-01-18_22_15](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/ed4973e1-a5cd-45dd-8a52-7469e4779d20)
+![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-02-20_59_48](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/9609b84e-0c1a-4e48-b5cc-67fb7b3a9dae)
+
+![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-02-21_00_26 (1)](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/d8aa230e-092b-4af5-be1b-a2e9af35817a)
+
+
 
