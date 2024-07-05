@@ -16,6 +16,7 @@ How to Get started? [WIKI](https://github.com/PJanisio/ewelinkApiPhp/wiki)
 
 ## Screenshot
 
-![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-02-20_59_48](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/9609b84e-0c1a-4e48-b5cc-67fb7b3a9dae)
+![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-05-07_01_19](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/50b06d07-942d-4419-8e4a-97c6bc0f7c6e)
 
-![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-02-21_00_26 (1)](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/d8aa230e-092b-4af5-be1b-a2e9af35817a)
+![screencapture-nastran-org-modules-dev-ewelink-index-html-2024-07-05-07_01_38](https://github.com/PJanisio/ewelinkapiphp-device-monitoring/assets/9625885/96192a96-92fe-4d18-abb4-b45434a035a1)
+
