@@ -175,7 +175,7 @@ $(document).ready(function () {
 
                     updateDeviceToggles(data.data);
 
-                    $('#deviceControl').show();
+                    $('#deviceControlSection').show(); // Show Device Control section
                 } else {
                     console.error(data.error ? data.error : 'Unknown error');
                     updateLoader(100, 'Failed to fetch parameters.', false);
