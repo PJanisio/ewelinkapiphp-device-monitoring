@@ -23,6 +23,8 @@ try {
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'getDevicesList':
+            // Fetch the latest devices data before getting the devices list
+            $devices->fetchDevicesData();
             $devicesList = $devices->getDevicesList();
             $response = [];
             foreach ($devicesList as $name => $deviceStatus) {
@@ -36,25 +38,25 @@ try {
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'updateDeviceState':
-    $newState = $_GET['newState'] ?? null;
-    $outlet = $_GET['outlet'] ?? null; // Add outlet parameter
-    if ($newState === null) {
-        echo json_encode(['success' => false, 'error' => 'New state not provided']);
-        break;
-    }
-    if ($outlet !== null) {
-        $params = [
-            'switch' => $newState,
-            'outlet' => (int)$outlet
-        ];
-    } else {
-        $params = [
-            'switch' => $newState
-        ];
-    }
-    $response = $devices->setDeviceStatus($deviceIdentifier, $params);
-    echo json_encode(['success' => true, 'data' => $response]);
-    break;
+            $newState = $_GET['newState'] ?? null;
+            $outlet = $_GET['outlet'] ?? null; // Add outlet parameter
+            if ($newState === null) {
+                echo json_encode(['success' => false, 'error' => 'New state not provided']);
+                break;
+            }
+            if ($outlet !== null) {
+                $params = [
+                    'switch' => $newState,
+                    'outlet' => (int)$outlet
+                ];
+            } else {
+                $params = [
+                    'switch' => $newState
+                ];
+            }
+            $response = $devices->setDeviceStatus($deviceIdentifier, $params);
+            echo json_encode(['success' => true, 'data' => $response]);
+            break;
         case 'setDeviceStatus':
             $params = json_decode($params, true);
             $response = $devices->setDeviceStatus($deviceIdentifier, $params);
@@ -66,3 +68,4 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
+?>

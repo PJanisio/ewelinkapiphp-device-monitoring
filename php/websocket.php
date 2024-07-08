@@ -23,6 +23,8 @@ try {
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'getDevicesList':
+            // Fetch the latest devices data before getting the devices list
+            $devices->fetchDevicesData();
             $devicesList = $devices->getDevicesList();
             $response = [];
             foreach ($devicesList as $name => $deviceStatus) {
@@ -66,3 +68,4 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
+?>
