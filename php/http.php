@@ -23,8 +23,6 @@ try {
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'getDevicesList':
-            // Fetch the latest devices data before getting the devices list
-            $devices->fetchDevicesData();
             $devicesList = $devices->getDevicesList();
             $response = [];
             foreach ($devicesList as $name => $deviceStatus) {
@@ -54,18 +52,20 @@ try {
                     'switch' => $newState
                 ];
             }
-            $response = $devices->setDeviceStatus($deviceIdentifier, $params);
+            $response = $devices->setDeviceStatus($deviceIdentifier, $params, 0);
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         case 'setDeviceStatus':
             $params = json_decode($params, true);
-            $response = $devices->setDeviceStatus($deviceIdentifier, $params);
+            $response = $devices->setDeviceStatus($deviceIdentifier, $params, 0);
             echo json_encode(['success' => true, 'data' => $response]);
             break;
         default:
             echo json_encode(['success' => false, 'error' => 'Invalid action']);
     }
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    $errorMsg = $e->getMessage();
+    $errorCode = array_search($errorMsg, Constants::ERROR_CODES);
+    echo json_encode(['success' => false, 'error' => $errorCode !== false ? (int)$errorCode : $errorMsg]);
 }
 ?>

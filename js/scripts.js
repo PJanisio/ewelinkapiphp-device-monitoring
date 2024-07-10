@@ -672,56 +672,54 @@ $(document).ready(function () {
         });
     });
 
-    // Handle Advanced Control form submission
-    $('#sendAdvancedControl').click(function () {
-        let deviceId = $('#deviceId').val();
-        let formData = $('#advancedControlForm').serializeArray();
-        let params = {};
-        formData.forEach(item => {
-            let keys = item.name.split('[').map(k => k.replace(']', ''));
-            let lastKey = keys.pop();
-            let nestedParam = keys.reduce((obj, key) => obj[key] = obj[key] || {}, params);
-            nestedParam[lastKey] = item.value;
-        });
+// Handle Advanced Control form submission
+$('#sendAdvancedControl').click(function () {
+    let deviceId = $('#deviceId').val();
+    let formData = $('#advancedControlForm').serializeArray();
+    let params = {};
+    formData.forEach(item => {
+        let keys = item.name.split('[').map(k => k.replace(']', ''));
+        let lastKey = keys.pop();
+        let nestedParam = keys.reduce((obj, key) => obj[key] = obj[key] || {}, params);
+        nestedParam[lastKey] = item.value;
+    });
 
-        showProgressModal(true);
-        updateLoader(30, 'Sending updated parameters...', true);
-        let action = useWebSocket ? 'forceUpdateDevice' : 'setDeviceStatus';
-        $.ajax({
-            url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
-            method: 'POST',
-            data: {
-                action: action,
-                device: deviceId,
-                params: JSON.stringify(params)
-            },
-            success: function (response) {
-                let data = typeof response === 'string' ? JSON.parse(response) : response;
-                if (data.success) {
-                    console.log('Device parameters updated successfully');
-                    updateLoader(100, 'Parameters updated successfully.', true);
-                    setTimeout(function () {
-                        $('#modalProgressModal').modal('hide');
-                    }, 500);
-                    $('#advancedControlModal').modal('hide');
-                } else {
-                    console.error(data.error ? data.error : 'Unknown error');
-                    updateLoader(100, 'Failed to update parameters.', true);
-                    setTimeout(function () {
-                        $('#modalProgressModal').modal('hide');
-                    }, 500);
-                }
-            },
-            error: function (xhr, status, error) {
-                console.error(error);
+    showProgressModal(true);
+    updateLoader(30, 'Sending updated parameters...', true);
+    $.ajax({
+        url: useWebSocket ? 'php/websocket.php' : 'php/http.php',
+        method: 'POST',
+        data: {
+            action: useWebSocket ? 'setDataWebSocket' : 'setDeviceStatus',
+            device: deviceId,
+            params: JSON.stringify(params)
+        },
+        success: function (response) {
+            let data = typeof response === 'string' ? JSON.parse(response) : response;
+            if (data.success) {
+                console.log('Device parameters updated successfully');
+                updateLoader(100, 'Parameters updated successfully.', true);
+                setTimeout(function () {
+                    $('#modalProgressModal').modal('hide');
+                }, 500);
+                $('#advancedControlModal').modal('hide');
+            } else {
+                console.error(data.error ? data.error : 'Unknown error');
                 updateLoader(100, 'Failed to update parameters.', true);
                 setTimeout(function () {
                     $('#modalProgressModal').modal('hide');
                 }, 500);
             }
-        });
+        },
+        error: function (xhr, status, error) {
+            console.error(error);
+            updateLoader(100, 'Failed to update parameters.', true);
+            setTimeout(function () {
+                $('#modalProgressModal').modal('hide');
+            }, 500);
+        }
     });
-
+});
     /**
      * Show the progress modal
      * @param {boolean} isModal - Whether it is for a modal window
