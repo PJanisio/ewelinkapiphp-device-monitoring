@@ -3,7 +3,7 @@
 /**
  * Class: ewelinkApiPhp
  * Author: Paweł 'Pavlus' Janisio
- * Website: https://github.com/AceExpert/ewelink-api-python
+ * Website: https://github.com/PJanisio/ewelinkApiPhp
  * Dependencies: PHP 7.4+
  * Description: API connector for Sonoff / ewelink devices
  */
@@ -85,9 +85,6 @@ class WebSocketClient {
         }
 
         $this->key = base64_encode(openssl_random_pseudo_bytes(16));
-        
-        $origin = Constants::REGION;
-        
         $headers = [
             "GET $this->path HTTP/1.1",
             "Host: {$this->host}",
@@ -95,8 +92,8 @@ class WebSocketClient {
             "Connection: Upgrade",
             "Sec-WebSocket-Key: $this->key",
             "Sec-WebSocket-Version: 13",
-            "Sec-WebSocket-Protocol: chat, superchat",
-            "Origin: {Constants::REDIRECT_URL}"
+            "Sec-WebSocket-Protocol: chat",
+            "Origin: null"
         ];
 
         $request = implode("\r\n", $headers) . "\r\n\r\n";
@@ -172,7 +169,6 @@ class WebSocketClient {
             'apikey' => $device['apikey'],
             'sequence' => strval(round(microtime(true) * 1000)),
             'params' => is_array($params) ? $params : [$params],
-            'from' => 'app',
             'userAgent' => 'app'
         ];
     }
